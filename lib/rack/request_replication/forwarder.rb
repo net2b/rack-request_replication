@@ -8,7 +8,8 @@ require 'active_support/core_ext/hash/conversions'
 module Rack
   module RequestReplication
     DEFAULT_PORTS = { 'http' => 80, 'https' => 443, 'coffee' => 80 }
-    VALID_REQUEST_METHODS = %w(head get post put patch propfind delete options trace)
+    # VALID_REQUEST_METHODS = %w(head get post put patch propfind delete options trace).freeze
+    VALID_REQUEST_METHODS = %w(get)
 
     ##
     # This class implements forwarding of requests
