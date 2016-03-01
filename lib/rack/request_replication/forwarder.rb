@@ -7,7 +7,7 @@ require 'active_support/core_ext/hash/conversions'
 
 module Rack
   module RequestReplication
-    DEFAULT_PORTS = { 'http' => 80, 'https' => 443, 'coffee' => 80 }
+    DEFAULT_PORTS = { 'http' => 80, 'https' => 443, 'coffee' => 80 }.freeze
     # VALID_REQUEST_METHODS = %w(head get post put patch propfind delete options trace).freeze
     VALID_REQUEST_METHODS = %w(get)
 
@@ -76,9 +76,9 @@ module Rack
         http.verify_mode = OpenSSL::SSL::VERIFY_NONE unless options[:verify_ssl]
 
         forward_request = send("create_#{opts[:request_method].downcase}_request", uri, opts)
-        forward_request.add_field("Accept", opts[:accept])
-        forward_request.add_field("Accept-Encoding", opts[:accept_encoding])
-        forward_request.add_field("Host", request.host)
+        forward_request.add_field('Accept', opts[:accept])
+        forward_request.add_field('Accept-Encoding', opts[:accept_encoding])
+        forward_request.add_field('Host', request.host)
 
         if options[:basic_auth]
           forward_request.basic_auth options[:basic_auth][:user], options[:basic_auth][:password]
@@ -86,7 +86,7 @@ module Rack
 
         Thread.new do
           begin
-            forward_request.add_field("Cookie", cookies(request))
+            forward_request.add_field('Cookie', cookies(request))
             update_csrf_token_and_cookies(request, http.request(forward_request))
           rescue => e
             logger.debug "Replicating request failed with: #{e.message}"
@@ -112,7 +112,7 @@ module Rack
       # @returns [String]
       #
       def csrf_token(request)
-        token = request.params["authenticity_token"]
+        token = request.params['authenticity_token']
         return if token.nil?
 
         redis.get("csrf-#{token}") || token
@@ -124,7 +124,7 @@ module Rack
       # @param   [Rack::Request] request
       #
       def update_csrf_token(request, response)
-        token = request.params["authenticity_token"]
+        token = request.params['authenticity_token']
         return if token.nil?
 
         response_token = csrf_token_from response
@@ -140,11 +140,10 @@ module Rack
       # @returns [String]
       #
       def csrf_token_from(response)
-        response.split("\n").
-          select{|l| l.match(/csrf-token/) }.
-          first.split(" ").
-          select{|t| t.match(/^content=/)}.first.
-          match(/content="(.*)"/)[1]
+        response.split("\n")
+                .find { |l| l.match(/csrf-token/) }.split(' ')
+                .find { |t| t.match(/^content=/) }
+                .match(/content="(.*)"/)[1]
       rescue
         nil
       end
@@ -159,8 +158,16 @@ module Rack
       #
       def update_cookies(request, response)
         return unless cookies_id(request)
-        cookie = response.to_hash['set-cookie'].collect{ |ea|ea[/^.*?;/] }.join rescue {}
-        cookie = Hash[cookie.split(";").map{ |d|d.split('=') }] rescue {}
+        cookie = begin
+                   response.to_hash['set-cookie'].collect { |ea| ea[/^.*?;/] }.join
+                 rescue
+                   {}
+                 end
+        cookie = begin
+                   Hash[cookie.split(';').map { |d| d.split('=') }]
+                 rescue
+                   {}
+                 end
         redis.set(cookies_id(request), cookie)
       end
 
@@ -175,7 +182,7 @@ module Rack
       # @returns [Hash]
       #
       def cookies(request)
-        return (request.cookies || "") unless cookies_id(request)
+        return (request.cookies || '') unless cookies_id(request)
         redis.get(cookies_id(request)) || request.cookies || {}
       end
 
@@ -204,7 +211,7 @@ module Rack
       # @param   [Hash{Symbol => Object}] opts ({})
       # @returns [Net:HTTP::Get]
       #
-      def create_get_request(uri, opts = {})
+      def create_get_request(uri, _opts = {})
         Net::HTTP::Get.new(uri.request_uri)
       end
 
@@ -265,7 +272,7 @@ module Rack
       # @param   [Hash{Symbol => Object}] opts ({})
       # @returns [Net:HTTP::Delete]
       #
-      def create_delete_request(uri, opts = {})
+      def create_delete_request(uri, _opts = {})
         Net::HTTP::Delete.new(uri.request_uri)
       end
 
@@ -278,7 +285,7 @@ module Rack
       # @param   [Hash{Symbol => Object}] opts ({})
       # @returns [Net:HTTP::Options]
       #
-      def create_options_request(uri, opts = {})
+      def create_options_request(uri, _opts = {})
         Net::HTTP::Options.new(uri.request_uri)
       end
 
@@ -291,7 +298,7 @@ module Rack
       # @param   [Hash{Symbol => Object}] opts ({})
       # @returns [Net:HTTP::Propfind]
       #
-      def create_propfind_request(uri, opts = {})
+      def create_propfind_request(uri, _opts = {})
         Net::HTTP::Propfind.new(uri.request_uri)
       end
 
@@ -304,7 +311,7 @@ module Rack
       # @param   [Hash{Symbol => Object}] opts ({})
       # @returns [Net:HTTP::Trace]
       #
-      def create_trace_request(uri, opts = {})
+      def create_trace_request(uri, _opts = {})
         Net::HTTP::Trace.new(uri.request_uri)
       end
 
@@ -317,7 +324,7 @@ module Rack
       # @param   [Hash{Symbol => Object}] opts ({})
       # @returns [Net:HTTP::Head]
       #
-      def create_head_request(uri, opts = {})
+      def create_head_request(uri, _opts = {})
         Net::HTTP::Head.new(uri.request_uri)
       end
 
@@ -347,8 +354,8 @@ module Rack
           replicated_options[m] = value unless value.nil?
         end
 
-        if replicated_options[:params]["authenticity_token"]
-          replicated_options[:params]["authenticity_token"] = csrf_token(request)
+        if replicated_options[:params]['authenticity_token']
+          replicated_options[:params]['authenticity_token'] = csrf_token(request)
         end
 
         replicated_options
